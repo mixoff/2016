@@ -12,6 +12,10 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ..
 make
 sudo make install
 
+Instaling CherryPy
+apt-get install python-pip
+apt-get install python-setuptools
+pip install CherryPy
 '''
 
 '''
@@ -32,6 +36,7 @@ import numpy as np
 import cv2
 #import cv2.cv as cv
 from PIL import Image
+import cherrypy
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
 
@@ -149,12 +154,25 @@ def TestFaceRecognition():
     #faceRecognizer = cv2.FaceRecognizer()
     #print faceRecognizer
 
-def TestVideo():
-    cap = cv2.VideoCapture(0)
-    #cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 320)
-    #cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
+################################################################################################
 
-    window_name = "Data Matrix Detector"
+def Train(src_images_dir_name, label=0):
+    src_images = GetImages(src_images_dir_name)
+    
+    # create labels
+    labels = []
+    for img in src_images:
+        labels.append(label)
+    
+    # train the system with the images
+    recognizer.train(src_images, np.array(labels))
+
+def Run():
+    cap = cv2.VideoCapture(0)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
+
+    window_name = "Video capture"
 
     if not cap.isOpened(): 
 	print 'Cannot initialize video capture'
@@ -164,65 +182,57 @@ def TestVideo():
 
     while True:
         ret, frame = cap.read()
-        print str(frame)
 
         if not ret:
-            break
+            continue
+    
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
+        #codes, corners, dmtx = cv2.findDataMatrix(gray)
 
-	gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
-	codes, corners, dmtx = cv2.findDataMatrix(gray)
+        #cv2.imshow(window_name, frame)
 
-	cv2.drawDataMatrixCodes(frame, codes, corners) 
-	cv2.imshow(window_name, frame)                 
+        # loop through all faces in the image
+        faces = face_cascade.detectMultiScale(gray)
+        print "Faces detected + " + str(len(faces))
+        for (x, y, w, h) in faces:
+            nbr_predicted, conf = recognizer.predict(gray[y: y + h, x: x + w])
+            #nbr_actual = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
+            #if nbr_actual == nbr_predicted:
+            #    print "{} is Correctly Recognized with confidence {}".format(nbr_actual, conf)
+            #else:
+            #    print "{} is Incorrect Recognized as {}".format(nbr_actual, nbr_predicted)
+            print "nbr_predicted = " + str(nbr_predicted)
+            print "conf (closer to zero is better match) = " + str(conf)
+            cv2.imshow("Recognizing Face", frame[y: y + h, x: x + w])
+            cv2.waitKey(1)
 
-        key = cv2.waitKey(30)
+        key = cv2.waitKey(1)
         c = chr(key & 255)
         if c in ['q', 'Q', chr(27)]:
             break
-        #gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # etc...
         frame_number += 1
 
-    #cap.release()
-
-def data_matrix_demo(cap):                                   
-    window_name = "Data Matrix Detector"                     
-    frame_number = 0
-    need_to_save = False
-    
-    while 1: 
-        ret, frame = cap.read()                              
-        if not ret:                                          
-            break
-        
-        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)       
-        codes, corners, dmtx = cv2.findDataMatrix(gray)      
-    
-        cv2.drawDataMatrixCodes(frame, codes, corners)       
-        cv2.imshow(window_name, frame)                       
-            
-        key = cv2.waitKey(30)
-        c = chr(key & 255)
-        if c in ['q', 'Q', chr(27)]:
-            break
-        
-        if c == ' ':
-            need_to_save = True                              
-                                                             
-        if need_to_save and codes:                           
-            filename = ("datamatrix%03d.jpg" % frame_number) 
-            cv2.imwrite(filename, frame)                     
-            print "Saved frame to " + filename               
-            need_to_save = False                             
-                                                             
-        frame_number += 1
-    
+    cap.release()
 
 
-#TestFaceRecognition()
-#TestFaceDetection()
-TestVideo()
-#cap = cv2.VideoCapture(0)
-#data_matrix_demo(cap)
+if __name__ == '__main__':
+    #TestFaceRecognition()
+    #TestFaceDetection()
+    Train('trainingdata/', 0)
+    Run()
+    exit()
+    #cap = cv2.VideoCapture(0)
+
+    conf = {
+        '/': {
+            'tools.sessions.on': True,
+            'tools.staticdir.root': os.path.abspath(os.getcwd())
+        },
+        '/static': {
+            'tools.staticdir.on': True,
+            'tools.staticdir.dir': './public'
+        }
+    }
+    cherrypy.quickstart(StringGenerator(), '/', conf)
 
 
