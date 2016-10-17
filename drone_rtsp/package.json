@@ -1,0 +1,20 @@
+{
+  "name": "mixoff_drone_rtsp",
+  "version": "1.0.0",
+  "description": "parrot bebop drone control/video streaming",
+  "license": "MIT",
+  "repository": { 
+      "type": "git", 
+      "url": "https://github.com/mixoff/2016" 
+  },
+  "author": "mixoff",
+  "main": "drone.js",
+  "scripts": {
+    "start": "nodejs drone.js"
+  },
+  "dependencies": {
+    "colors": "1.1.2",
+    "fluent-ffmpeg": "^2.1.0",
+    "node-bebop": "0.6.0"
+  }
+}
