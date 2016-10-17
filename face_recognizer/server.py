@@ -27,7 +27,7 @@ http://docs.opencv.org/2.4/doc/user_guide/ug_traincascade.html
 https://github.com/mbeyeler/opencv-python-bluyiannopouloseprints
 http://memememememememe.me/post/training-haar-cascades/
 http://hanzratech.in/2015/02/03/face-recognition-using-opencv.html     <------ this one is good
-
+Template matching : http://docs.opencv.org/3.1.0/d4/dc6/tutorial_py_template_matching.html
 '''
 
 import os
@@ -45,7 +45,9 @@ cascade_path = "haarcascade_frontalface_default.xml"
 face_cascade = cv2.CascadeClassifier(cascade_path)
 
 # For face recognition we will the the LBPH Face Recognizer
-recognizer = cv2.createLBPHFaceRecognizer()
+recognizer = cv2.createLBPHFaceRecognizer(radius=2, neighbors=1, grid_x=2, grid_y=2)#, threshold=10.0)
+#recognizer = cv2.createFisherFaceRecognizer()
+#recognizer = cv2.createEigenFaceRecognizer()
 
 def Detect(img, cascade):
     rects = cascade.detectMultiScale(img, scaleFactor=1.3, minNeighbors=4, minSize=(30, 30), flags = cv.CV_HAAR_SCALE_IMAGE)
@@ -65,21 +67,35 @@ def GetImages(path):
     images = []
     for image_path in image_paths:
         print "Processing : " + image_path
-        # Read the image and convert to grayscale
-        image_pil = Image.open(image_path).convert('L')
-        # Convert the image format into numpy array
-        image = np.array(image_pil, 'uint8')
-        # Detect the face in the image
-        faces = face_cascade.detectMultiScale(image)
 
-        if len(faces) is 0:
-            print "No face found in image: " + image_path
-        else:
-            print "    Found " + str(len(faces)) + " faces in image."
+        # load the image - convert to grayscale
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        # equalize the image
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))#equalizeHist(frame)
+        image = clahe.apply(image)
 
-        # If face is detected, append the face to images 
-        for (x, y, w, h) in faces:
-            images.append(image[y: y + h, x: x + w])
+        while True:
+            # Detect the face in the image
+            faces = face_cascade.detectMultiScale(image)
+
+            if len(faces) is 0:
+                print "No face found in image: " + image_path
+                break
+            else:
+                print "    Found " + str(len(faces)) + " faces in image."
+
+            # If face is detected, append the face to images 
+            for (x, y, w, h) in faces:
+                images.append(image[y: y + h, x: x + w])
+
+            print "    Resizing image..."
+            image = cv2.resize(image, (0,0), fx=0.9, fy=0.9)
+
+            # if image is smaller than threshold, then break out
+            image_h, image_w = image.shape[:2]
+            if image_h < 50 or image_w < 50:
+                break
+
     # return the images list
     return images
 
@@ -163,49 +179,58 @@ def Train(src_images_dir_name, label=0):
     labels = []
     for img in src_images:
         labels.append(label)
-    
+
+    cv2.imshow("Adding faces to training set...", src_images[0])
+    #cv2.waitKey(0)
+
     # train the system with the images
+    print "Training..."
     recognizer.train(src_images, np.array(labels))
+    print "Training completed."
 
 def Run():
     cap = cv2.VideoCapture(0)
-    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 480)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 320)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
 
     window_name = "Video capture"
 
     if not cap.isOpened(): 
 	print 'Cannot initialize video capture'
-	sys.exit(-1)                           
+	sys.exit(-1)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
 
     frame_number = 0
 
     while True:
         ret, frame = cap.read()
-
         if not ret:
             continue
-    
-        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
-        #codes, corners, dmtx = cv2.findDataMatrix(gray)
 
-        #cv2.imshow(window_name, frame)
+        # convert to grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
+        # equalize the image
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))#equalizeHist(frame)
+        gray = clahe.apply(gray)
 
         # loop through all faces in the image
         faces = face_cascade.detectMultiScale(gray)
-        print "Faces detected + " + str(len(faces))
+        print "Faces detected = " + str(len(faces))
         for (x, y, w, h) in faces:
-            nbr_predicted, conf = recognizer.predict(gray[y: y + h, x: x + w])
-            #nbr_actual = int(os.path.split(image_path)[1].split(".")[0].replace("subject", ""))
-            #if nbr_actual == nbr_predicted:
-            #    print "{} is Correctly Recognized with confidence {}".format(nbr_actual, conf)
-            #else:
-            #    print "{} is Incorrect Recognized as {}".format(nbr_actual, nbr_predicted)
-            print "nbr_predicted = " + str(nbr_predicted)
-            print "conf (closer to zero is better match) = " + str(conf)
-            cv2.imshow("Recognizing Face", frame[y: y + h, x: x + w])
-            cv2.waitKey(1)
+            nbr_predicted, conf = recognizer.predict(gray[y:y+h, x:x+w])
+            print "    nbr_predicted = " + str(nbr_predicted)
+            print "    conf (closer to zero is better match) = " + str(conf)
+            col = (255,0,0)
 
+            if conf < 0.02:
+                col = (0,0,255)
+
+            cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
+            cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),2)#,cv2.LINE_AA)
+
+        #frame = cv2.resize(frame, (0,0), fx=3.0, fy=3.0)
+        cv2.imshow("Recognizing Face", frame)
         key = cv2.waitKey(1)
         c = chr(key & 255)
         if c in ['q', 'Q', chr(27)]:
@@ -218,21 +243,21 @@ def Run():
 if __name__ == '__main__':
     #TestFaceRecognition()
     #TestFaceDetection()
-    Train('trainingdata/', 0)
+    Train('trainingdata/', 1)
     Run()
-    exit()
+    #exit()
     #cap = cv2.VideoCapture(0)
 
-    conf = {
-        '/': {
-            'tools.sessions.on': True,
-            'tools.staticdir.root': os.path.abspath(os.getcwd())
-        },
-        '/static': {
-            'tools.staticdir.on': True,
-            'tools.staticdir.dir': './public'
-        }
-    }
-    cherrypy.quickstart(StringGenerator(), '/', conf)
+    #conf = {
+    #    '/': {
+    #        'tools.sessions.on': True,
+    #        'tools.staticdir.root': os.path.abspath(os.getcwd())
+    #    },
+    #    '/static': {
+    #        'tools.staticdir.on': True,
+    #        'tools.staticdir.dir': './public'
+    #    }
+    #}
+    #cherrypy.quickstart(StringGenerator(), '/', conf)
 
 
