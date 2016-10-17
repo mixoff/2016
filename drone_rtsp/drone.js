@@ -7,13 +7,14 @@ var bebop = require("node-bebop")
 var drone = bebop.createClient();
 var video = drone.getVideoStream();
 
-var command = ffmpeg('sample.mp4')
+var command = ffmpeg(video)
                 .on('start', cmd => console.log(cmd))
                 .withNativeFramerate()
-                .videoCodec('copy')
+                .inputOptions(['-re'])
+                .videoCodec('libx264')
                 .noAudio()
-                .outputOptions(['-f rtsp'])
-                .output('rtsp://127.0.0.1:12345/live.sdp')
+                .outputOptions(['-f mpegts'])
+                .output('udp://127.0.0.1:8888')
                 .on('error', function(err) {
                     console.log(colours.red(err));
                 })
