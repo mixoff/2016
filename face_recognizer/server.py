@@ -36,7 +36,6 @@ import numpy as np
 import cv2
 #import cv2.cv as cv
 from PIL import Image
-import cherrypy
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
 
