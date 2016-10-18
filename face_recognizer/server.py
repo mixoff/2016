@@ -36,7 +36,7 @@ import numpy as np
 import cv2
 #import cv2.cv as cv
 from PIL import Image
-import cherrypy
+#import cherrypy
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
 
@@ -60,11 +60,12 @@ def DrawRects(img, rects, color):
     for x1, y1, x2, y2 in rects:
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
-def GetImages(path):
+def GetImages(path, label, resize=False):
     # Append all the absolute image paths in a list image_paths
     image_paths = [os.path.join(path, f) for f in os.listdir(path)]
     # images will contains face images
     images = []
+    labels = []
     for image_path in image_paths:
         print "Processing : " + image_path
 
@@ -86,7 +87,14 @@ def GetImages(path):
 
             # If face is detected, append the face to images 
             for (x, y, w, h) in faces:
-                images.append(image[y: y + h, x: x + w])
+                cropped_image = image[y: y + h, x: x + w]
+                images.append(cropped_image)
+                labels.append(label)
+                splitpath, splitfilename = os.path.split(image_path)
+                cv2.imwrite("temp/"+str(label)+"_"+str(x)+"_"+str(y)+"_"+splitfilename, cropped_image)
+        
+            if not resize:
+                break
 
             print "    Resizing image..."
             image = cv2.resize(image, (0,0), fx=0.9, fy=0.9)
@@ -97,7 +105,7 @@ def GetImages(path):
                 break
 
     # return the images list
-    return images
+    return images, labels
 
 
 def TestFaceDetection():
@@ -172,21 +180,6 @@ def TestFaceRecognition():
 
 ################################################################################################
 
-def Train(src_images_dir_name, label=0):
-    src_images = GetImages(src_images_dir_name)
-    
-    # create labels
-    labels = []
-    for img in src_images:
-        labels.append(label)
-
-    cv2.imshow("Adding faces to training set...", src_images[0])
-    #cv2.waitKey(0)
-
-    # train the system with the images
-    print "Training..."
-    recognizer.train(src_images, np.array(labels))
-    print "Training completed."
 
 def Run():
     cap = cv2.VideoCapture(0)
@@ -223,7 +216,7 @@ def Run():
             print "    conf (closer to zero is better match) = " + str(conf)
             col = (255,0,0)
 
-            if conf < 0.02:
+            if conf < 0.02 and nbr_predicted == 0:
                 col = (0,0,255)
 
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
@@ -243,7 +236,16 @@ def Run():
 if __name__ == '__main__':
     #TestFaceRecognition()
     #TestFaceDetection()
-    Train('trainingdata/', 1)
+
+    images_target, labels_target = GetImages("trainingdata_target/", 0, True)
+    images_false, labels_false = GetImages('trainingdata_false/', 1)
+
+    # train the system with the images
+    print "Training..."
+    recognizer.train(images_target+images_false, 
+            np.array(labels_target+labels_false))
+    print "Training completed."
+    
     Run()
     #exit()
     #cap = cv2.VideoCapture(0)
