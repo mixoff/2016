@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -13,7 +12,7 @@ void state_changed(eARCONTROLLER_DEVICE_STATE new_state, eARCONTROLLER_ERROR err
 void begin_streaming();
 eARCONTROLLER_ERROR did_receive_frame_callback(ARCONTROLLER_Frame_t *frame, void *custom_data);
 eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, void *custom_data);
-void terminate();
+void terminate(const char *fifo_file);
 
 // Constants
 const char *TAG = "BebopStream";
@@ -21,6 +20,7 @@ const char *BEBOP_IP_ADDRESS = "192.168.42.1";
 const unsigned BEBOP_DISCOVERY_PORT = 44444;
 
 int failed = 0;
+int alive = 1;
 FILE *videoOut = NULL;
 ARSAL_Sem_t state_sem;
 ARCONTROLLER_Device_t *device = NULL;
@@ -31,7 +31,8 @@ eARCONTROLLER_DEVICE_STATE device_state = ARCONTROLLER_DEVICE_STATE_MAX;
 void sighandler(int sig)
 {
     fprintf(stderr, "Caught SIGINT\n");
-    terminate();
+    alive = 0;
+    exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -43,6 +44,14 @@ int main(int argc, char *argv[])
     }
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, sighandler);
+    const char *fifo_file = argv[1];
+
+    if (mkfifo(fifo_file, 0666) < 0)
+    {
+        fprintf(stderr, "Failed to create fifo file\n");
+        exit(EXIT_FAILURE);
+    }
+    printf("Ok...waiting on a reader for the pipe\n");
 
     videoOut = fopen(argv[1], "w");
     if (videoOut == NULL)
@@ -53,12 +62,16 @@ int main(int argc, char *argv[])
     else
     {
         begin_streaming();
-        terminate();
+        while (alive)
+        {
+            usleep(50);
+        }
+        terminate(fifo_file);
     }
 }
 
 
-void terminate()
+void terminate(const char *fifo_file)
 {
     if (device != NULL)
     {
@@ -67,11 +80,7 @@ void terminate()
                 (device_state != ARCONTROLLER_DEVICE_STATE_STOPPED))
         {
             ARSAL_PRINT(ARSAL_PRINT_INFO, TAG, "Disconnecting ...");
-            error = ARCONTROLLER_Device_Stop(device);
-            if (error == ARCONTROLLER_OK)
-            {
-                ARSAL_Sem_Wait (&(state_sem));
-            }
+            ARCONTROLLER_Device_Stop(device);
         }
 
         ARSAL_PRINT(ARSAL_PRINT_INFO, TAG, "ARCONTROLLER_Device_Delete ...");
@@ -79,6 +88,11 @@ void terminate()
 
         fflush (videoOut);
         fclose (videoOut);
+    }
+
+    if (unlink(fifo_file) == -1)
+    {
+        perror("Failed to unlink fifo file");
     }
 
     ARSAL_Sem_Destroy (&(state_sem));
@@ -207,12 +221,6 @@ void begin_streaming(FILE *fifo)
         failed = 1;
         return;
     }
-
-    // sleep until interrupted
-    while (1)
-    {
-        usleep(50);
-    }
 }
 
 
@@ -226,8 +234,6 @@ void state_changed(eARCONTROLLER_DEVICE_STATE new_state,
     switch (new_state)
     {
         case ARCONTROLLER_DEVICE_STATE_STOPPED:
-            ARSAL_Sem_Post (&(state_sem));
-            break;
         case ARCONTROLLER_DEVICE_STATE_RUNNING:
             ARSAL_Sem_Post (&(state_sem));
             break;
@@ -239,6 +245,7 @@ void state_changed(eARCONTROLLER_DEVICE_STATE new_state,
 eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, 
                                             void *custom_data)
 {
+    printf("oh hi\n");
     if (videoOut != NULL)
     {
         if (codec.type == ARCONTROLLER_STREAM_CODEC_TYPE_H264)

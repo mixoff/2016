@@ -22,9 +22,8 @@ $(EXEC_BIN): $(OBJECTS)
 clean:
 	rm -rf obj/* bin/*
 
-mkfifo:
-	rm ${FIFO_FILE}
-	mkfifo ${FIFO_FILE}
+clean_fifo:
+	rm -rf ${FIFO_FILE}
 
-run: ${EXEC_BIN} mkfifo
-	$(SDK_DIR)/native-wrapper.sh $(EXEC_BIN) foo
+run: ${EXEC_BIN} clean_fifo
+	$(SDK_DIR)/native-wrapper.sh $(EXEC_BIN) ${FIFO_FILE}
