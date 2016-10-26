@@ -245,7 +245,6 @@ void state_changed(eARCONTROLLER_DEVICE_STATE new_state,
 eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, 
                                             void *custom_data)
 {
-    printf("oh hi\n");
     if (videoOut != NULL)
     {
         if (codec.type == ARCONTROLLER_STREAM_CODEC_TYPE_H264)
