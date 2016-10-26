@@ -182,15 +182,18 @@ def TestFaceRecognition():
 
 
 def Run():
-    cap = cv2.VideoCapture(0)
+    # can use ffmpeg to encode video from source into a FIFO:
+    # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 output.mkv
+    # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 pipe:1 > arsdk_fifo
+
+    print "Waiting for live feed..."
+    cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
     cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 320)
     cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
 
-    window_name = "Video capture"
-
     if not cap.isOpened(): 
 	print 'Cannot initialize video capture'
-	sys.exit(-1)
+	return
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
@@ -200,6 +203,8 @@ def Run():
         ret, frame = cap.read()
         if not ret:
             continue
+        
+        frame = cv2.resize(frame, (160,120))
 
         # convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
@@ -222,7 +227,7 @@ def Run():
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
             cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),2)#,cv2.LINE_AA)
 
-        #frame = cv2.resize(frame, (0,0), fx=3.0, fy=3.0)
+        frame = cv2.resize(frame, (512,480))
         cv2.imshow("Recognizing Face", frame)
         key = cv2.waitKey(1)
         c = chr(key & 255)
@@ -234,19 +239,18 @@ def Run():
 
 
 if __name__ == '__main__':
-    #TestFaceRecognition()
-    #TestFaceDetection()
-
-    images_target, labels_target = GetImages("trainingdata_target/", 0, True)
-    images_false, labels_false = GetImages('trainingdata_false/', 1)
 
     # train the system with the images
     print "Training..."
-    recognizer.train(images_target+images_false, 
-            np.array(labels_target+labels_false))
-    print "Training completed."
-    
-    Run()
+    # train the recognizer with "false" data
+    images, labels = GetImages('trainingdata_false/', 1)
+    recognizer.train(images, np.array(labels))
+    # update the recognizer with the target images
+    images, labels = GetImages("trainingdata_target/", 0, True)
+    recognizer.update(images, np.array(labels))
+   
+    while True:
+        Run()
     #exit()
     #cap = cv2.VideoCapture(0)
 
