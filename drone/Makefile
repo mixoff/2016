@@ -12,9 +12,11 @@ OBJECTS=$(patsubst %,obj/%,$(_OBJECTS))
 all: $(EXEC_BIN)
 
 obj/%.o: src/%.c
+	mkdir -p obj
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 $(EXEC_BIN): $(OBJECTS)
+	mkdir -p bin
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 .PHONY: clean

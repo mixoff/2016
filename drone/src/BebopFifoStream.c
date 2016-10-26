@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     else
     {
         begin_streaming();
-        while (alive)
+        while (alive && !failed)
         {
             usleep(50);
         }
