@@ -9,17 +9,18 @@ var chalk = require('chalk')
    ,sock = zmq.socket('push')
    ,util = require('util');
 
-style = { info: chalk.green, error: chalk.red }
+style = { info: chalk.green, error: chalk.red, warn: chalk.yellow }
+droneEnv = process.env;
 
-/* Drone commands. */
+/* Drone commands, matching BebopController.h*/
 var commands = {
     TAKEOFF: 1,
     LAND: 2,
     EMERGENCY: 3,
-    LEFT: 4,
-    RIGHT: 5
+    ROLL: 4,
+    FLIP: 5,
+    CALIBRATE: 6
 }
-var droneMovementSpeed = 50;
 
 program
     .version('0.0.1')
@@ -35,34 +36,50 @@ if (typeof fifoFile === 'undefined') {
     process.exit(1);
 };
 
-/* Video Stream */
 const droneVideo = spawn(drone_video_bin, [fifoFile]);
 droneVideo.stdout.on('data', (data) => {
-    console.log(style.info(data));
+    console.log(style.info('DRONE_PROC:: ' + data));
 });
 
 droneVideo.stderr.on('data', (data) => {
-    console.log(style.error(data));
+    console.log(style.error('DRONE_PROC:: ' + data));
 });
 
 droneVideo.on('close', (code) => {
-    console.log(style.info('Drone video stopped with code: ' + code));
+    console.log(style.error('Drone video stopped with code: ' + code));
     process.exit(code);
 });
 
-var drone_cmd = function(sock, command, value)
-{
-    console.log(style.info('Command: ' + command + ' Value: ' + value));
+var drone_cmd = function(sock, command, value) {
+    console.log('Sending commands');
     sock.send(util.format('{"id": %d, "value": %d}', command, value));
 }
 
-console.log('Beginning drone flight in 10 seconds...');
+var connect_attempts = 1;
+
+process.on('SIGINT', () => {
+    console.log(style.error('SIGINT received, performing emergency stop'));
+    drone_cmd(sock, commands.EMERGENCY, 0);
+});
+
+sock.on('connect', function(fd, ep) {
+    console.log(style.info('Got a connection!'));
+    setTimeout(function() {
+        setTimeout(drone_cmd, 5000, sock, commands.TAKEOFF, 0);
+        setTimeout(drone_cmd, 25000, sock, commands.ROLL, -80);
+        setTimeout(drone_cmd, 40000, sock, commands.ROLL, 80);
+        setTimeout(drone_cmd, 20000, sock, commands.LAND, 0);
+    }, 10000);
+    console.log(style.info('Beginning drone flight in 10 seconds'));
+});
+
+sock.on('connect_retry', function(fd, ep) {
+    console.log(style.warn(util.format('Awaiting connection to drone RPC (attempt %d)', connect_attempts)));
+    connect_attempts++;
+});
+
+sock.monitor(1000);
+
 setTimeout(function() {
     sock.connect('tcp://127.0.0.1:5555');
-    setTimeout(drone_cmd, 5000, sock, commands.TAKEOFF, 0);
-    setTimeout(drone_cmd, 15000, sock, commands.LEFT, 50);
-    setTimeout(drone_cmd, 20000, sock, commands.RIGHT, 50);
-    setTimeout(drone_cmd, 25000, sock, commands.LAND, 0);
-}, 10000);
-
-
+}, 1000);
