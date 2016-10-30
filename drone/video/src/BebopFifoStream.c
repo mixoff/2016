@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdlib.h>
 #include <pthread.h>
 
 #include <libARSAL/ARSAL.h>
@@ -45,6 +46,13 @@ int main(int argc, char *argv[])
     // don't buffer stdout
     setvbuf(stdout, NULL, _IONBF, 0);
 
+    char *env = getenv("TEST");
+    if (env != NULL)
+    {
+        printf("Drone simulation set\n");
+        #define TEST
+    }
+
     if (argc != 2)
     {
         fprintf(stderr, "Usage: %s <fifo_file>\n", argv[0]);
@@ -59,7 +67,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to create fifo file\n");
         exit(EXIT_FAILURE);
     }
-    printf("Ok...waiting on a reader for the pipe\n");
+    printf("Waiting on a process to begin reading '%s'\n", fifo_file);
 
     videoOut = fopen(argv[1], "w");
     if (videoOut == NULL)
@@ -77,15 +85,16 @@ int main(int argc, char *argv[])
         if (pthread_create(&input_thread, NULL, poll_input, (void *)(device)))
         {
             fprintf(stderr, "Failed to create input thread\n");
+            terminate(fifo_file, EXIT_FAILURE);
         }
         if (pthread_join(input_thread, NULL))
         {
             fprintf(stderr, "Failed to join\n");
+            terminate(fifo_file, EXIT_FAILURE);
         }
-        terminate(fifo_file, EXIT_FAILURE);
+        terminate(fifo_file, EXIT_SUCCESS);
     }
 }
-
 
 static void terminate(const char *fifo_file, int code)
 {
@@ -291,7 +300,7 @@ static eARCONTROLLER_ERROR did_receive_frame_callback(ARCONTROLLER_Frame_t *fram
         if (frame != NULL)
         {
             fwrite(frame->data, frame->used, 1, videoOut);
-            fflush (videoOut);
+            fflush(videoOut);
         }
         else
         {

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I./ -I $(SDK_DIR)/usr/include
+CFLAGS=-I./ -I $(SDK_DIR)/usr/include 
 LDFLAGS=-L$(SDK_DIR)/usr/lib -larcontroller -larnetwork -larstream2 -larsal -larcommands -larnetworkal -lardiscovery -larstream -ljson -lpthread -lm -lczmq
 
 SDK_DIR=arsdk3
