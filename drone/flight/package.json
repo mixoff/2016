@@ -1,0 +1,18 @@
+{
+  "name": "bebop_flight",
+  "version": "1.0.0",
+  "description": "Fly the bebop drone!",
+  "main": "bebop.js",
+  "scripts": {
+    "start": "nodejs bebop.js"
+  },
+  "author": "themixmeister",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^1.1.3",
+    "commander": "^2.9.0",
+    "cylon": "^1.3.0",
+    "cylon-bebop": "^0.5.0",
+    "zmq": "^2.15.3"
+  }
+}

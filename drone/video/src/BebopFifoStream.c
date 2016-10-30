@@ -2,19 +2,23 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include <libARSAL/ARSAL.h>
 #include <libARController/ARController.h>
 #include <libARDiscovery/ARDiscovery.h>
 
-// Function prototypes
-void state_changed(eARCONTROLLER_DEVICE_STATE new_state, eARCONTROLLER_ERROR error, void *custom_data);
-void begin_streaming();
-eARCONTROLLER_ERROR did_receive_frame_callback(ARCONTROLLER_Frame_t *frame, void *custom_data);
-eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, void *custom_data);
-void terminate(const char *fifo_file);
+#include "BebopController.h"
 
-// Constants
+// Function prototypes
+static void state_changed(eARCONTROLLER_DEVICE_STATE new_state, eARCONTROLLER_ERROR error, void *custom_data);
+static void begin_streaming();
+static eARCONTROLLER_ERROR did_receive_frame_callback(ARCONTROLLER_Frame_t *frame, void *custom_data);
+static eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, void *custom_data);
+static void sighandler(int sig);
+static void check_input();
+static void terminate(const char *fifo_file, int code);
+
 const char *TAG = "BebopStream";
 const char *BEBOP_IP_ADDRESS = "192.168.42.1";
 const unsigned BEBOP_DISCOVERY_PORT = 44444;
@@ -27,16 +31,20 @@ ARCONTROLLER_Device_t *device = NULL;
 ARDISCOVERY_Device_t *discovery_device = NULL;
 eARCONTROLLER_ERROR error = ARCONTROLLER_OK;
 eARCONTROLLER_DEVICE_STATE device_state = ARCONTROLLER_DEVICE_STATE_MAX;
+const char *fifo_file;
+pthread_t input_thread;
 
-void sighandler(int sig)
+static void sighandler(int sig)
 {
     fprintf(stderr, "Caught SIGINT\n");
-    alive = 0;
-    exit(EXIT_SUCCESS);
+    terminate(fifo_file, EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
 {
+    // don't buffer stdout
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     if (argc != 2)
     {
         fprintf(stderr, "Usage: %s <fifo_file>\n", argv[0]);
@@ -44,8 +52,8 @@ int main(int argc, char *argv[])
     }
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, sighandler);
-    const char *fifo_file = argv[1];
 
+    fifo_file = argv[1];
     if (mkfifo(fifo_file, 0666) < 0)
     {
         fprintf(stderr, "Failed to create fifo file\n");
@@ -62,16 +70,24 @@ int main(int argc, char *argv[])
     else
     {
         begin_streaming();
-        while (alive && !failed)
+        if (failed)
         {
-            usleep(50);
+            terminate(fifo_file, EXIT_FAILURE);
         }
-        terminate(fifo_file);
+        if (pthread_create(&input_thread, NULL, poll_input, (void *)(device)))
+        {
+            fprintf(stderr, "Failed to create input thread\n");
+        }
+        if (pthread_join(input_thread, NULL))
+        {
+            fprintf(stderr, "Failed to join\n");
+        }
+        terminate(fifo_file, EXIT_FAILURE);
     }
 }
 
 
-void terminate(const char *fifo_file)
+static void terminate(const char *fifo_file, int code)
 {
     if (device != NULL)
     {
@@ -97,9 +113,11 @@ void terminate(const char *fifo_file)
 
     ARSAL_Sem_Destroy (&(state_sem));
     ARSAL_PRINT(ARSAL_PRINT_INFO, TAG, "-- END --");
+
+    exit(code);
 }
 
-void begin_discovery(ARDISCOVERY_Device_t **device, const char *ip, 
+static void begin_discovery(ARDISCOVERY_Device_t **device, const char *ip, 
                      const unsigned port)
 {
     ARSAL_PRINT(ARSAL_PRINT_INFO, TAG, "- init discovery device ... ");
@@ -127,7 +145,7 @@ void begin_discovery(ARDISCOVERY_Device_t **device, const char *ip,
     }
 }
 
-void init_device(ARDISCOVERY_Device_t **discovery_device, 
+static void init_device(ARDISCOVERY_Device_t **discovery_device, 
         ARCONTROLLER_Device_t **device_controller, eARCONTROLLER_ERROR *error)
 {
     *device_controller = ARCONTROLLER_Device_New(*discovery_device, error);
@@ -139,7 +157,7 @@ void init_device(ARDISCOVERY_Device_t **discovery_device,
     }
 }
 
-void begin_streaming(FILE *fifo)
+static void begin_streaming(FILE *fifo)
 {
     ARSAL_Sem_Init(&(state_sem), 0, 0);
 
@@ -225,7 +243,7 @@ void begin_streaming(FILE *fifo)
 
 
 // called when the state of the device controller has changed
-void state_changed(eARCONTROLLER_DEVICE_STATE new_state, 
+static void state_changed(eARCONTROLLER_DEVICE_STATE new_state, 
         eARCONTROLLER_ERROR error, void *custom_data)
 {
     ARSAL_PRINT(ARSAL_PRINT_INFO, TAG, "- state changed: %d ..... ", 
@@ -242,7 +260,7 @@ void state_changed(eARCONTROLLER_DEVICE_STATE new_state,
     }
 }
 
-eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, 
+static eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec, 
                                             void *custom_data)
 {
     if (videoOut != NULL)
@@ -265,7 +283,7 @@ eARCONTROLLER_ERROR decoder_config_callback(ARCONTROLLER_Stream_Codec_t codec,
 }
 
 
-eARCONTROLLER_ERROR did_receive_frame_callback(ARCONTROLLER_Frame_t *frame, 
+static eARCONTROLLER_ERROR did_receive_frame_callback(ARCONTROLLER_Frame_t *frame, 
                                                void *custom_data)
 {
     if (videoOut != NULL)
