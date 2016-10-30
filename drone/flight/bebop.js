@@ -66,9 +66,10 @@ sock.on('connect', function(fd, ep) {
     console.log(style.info('Got a connection!'));
     setTimeout(function() {
         setTimeout(drone_cmd, 5000, sock, commands.TAKEOFF, 0);
+        setTimeout(drone_cmd, 10000, sock, commands.ROLL, -80);
+        setTimeout(drone_cmd, 15000, sock, commands.ROLL, 80);
         setTimeout(drone_cmd, 25000, sock, commands.ROLL, -80);
-        setTimeout(drone_cmd, 40000, sock, commands.ROLL, 80);
-        setTimeout(drone_cmd, 20000, sock, commands.LAND, 0);
+        setTimeout(drone_cmd, 30000, sock, commands.LAND, 0);
     }, 10000);
     console.log(style.info('Beginning drone flight in 10 seconds'));
 });
