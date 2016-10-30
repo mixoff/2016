@@ -12,26 +12,31 @@ With a body of
 }
 
 ## Drone Stream/Flight Service
-The Parrot SDK provides native C bindings to allow us to stream video frames out. This is possible using higher level bindings such as node-bebop, but the video stream appears very jumpy. The current solution is to start a nodejs process that spawns a c process that starts the video stream writing to a FIFO file. This C process manages a seperate thread where it receives commands via 0MQ. Commands are strictly defines in the JSON format: {"id": 1, "value": 10} where id is the number of the command and value is an optional value for the command (ie the amount of roll when turning). See video/src/BecopController.h for definition of command identifiers.
+The Parrot SDK provides native C bindings to allow us to stream video frames out. This is possible using higher level bindings such as node-bebop, but the video stream appears very jumpy. The current solution is to start a nodejs process that spawns a c process that starts the video stream writing to a FIFO file. This C process manages a seperate thread where it receives commands via 0MQ. Commands are strictly defined in the JSON format: {"id": 1, "value": 10} where id is the number of the command and value is an optional value for the command (ie the amount of roll when turning). See video/src/BecopController.h for definition of command identifiers.
 
 Dependencies:
-    * make
-    * gcc
-    * libczmq-dev
-    * nodejs
-    * npm
-    * mplayer
-    * ffmpeg
+
+* make
+*  gcc
+* libczmq-dev
+* nodejs
+* npm
+* mplayer
+* ffmpeg
 
 ### Running the drone stream video
 Execute the run.sh script providing the name of the output FIFO:
+
     ./run.sh bebop_stream
 
-Execute the face recognizer tool pointing it at the fifo stream. Once the stream is established, commands will be sent to move the drone. In order to test without actually flying the drone, export the environment variable TEST to the process:
+Execute the face recognizer tool pointing it at the fifo stream. Once the stream is established, commands will be sent to move the drone. 
+
+In order to test without actually flying the drone, export the environment variable TEST to the process:
 
     TEST=1 ./run.sh bebop_stream
 
 In the above example, the drone will not be moved as it is in test mode. Commands will be sent as folows:
+
 1. After 5 seconds, the drone will takeoff
 2. After a further 5 seconds, the drone will bank left
 3. After a further 5 seconds seconds, the drone will bank right
