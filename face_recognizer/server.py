@@ -196,8 +196,8 @@ def Run():
     # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 pipe:1 > arsdk_fifo
 
     print "Waiting for live feed..."
-    #cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
+    #cap = cv2.VideoCapture(0)
     cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 320)
     cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
 
@@ -249,8 +249,8 @@ def Run():
 
 
 if __name__ == '__main__':
-    postImage(None, "https://mixoff-identity-test.eu-gb.mybluemix.net/pic")
-    exit(1)
+    #postImage(None, "https://mixoff-identity-test.eu-gb.mybluemix.net/pic")
+    #exit(1)
 
     # train the system with the images
     print "Training..."
