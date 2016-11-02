@@ -37,6 +37,8 @@ import cv2
 #import cv2.cv as cv
 from PIL import Image
 #import cherrypy
+#import httplib, urllib
+import requests
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
 
@@ -180,14 +182,22 @@ def TestFaceRecognition():
 
 ################################################################################################
 
+def postImage(jpegData, url):
+    headers = {'Content-Type': 'image/jpeg'}
+    data = open("trainingdata_target/bacon1.jpg", 'rb').read()
+    r = requests.post(url, headers=headers, data=data)
+    print(r.text)
 
 def Run():
     # can use ffmpeg to encode video from source into a FIFO:
     # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 output.mkv
+    # Fifo:
+    # mkfifo arsdk_fifo
     # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 pipe:1 > arsdk_fifo
 
     print "Waiting for live feed..."
-    cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
+    #cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
+    cap = cv2.VideoCapture(0)
     cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 320)
     cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
 
@@ -239,6 +249,8 @@ def Run():
 
 
 if __name__ == '__main__':
+    postImage(None, "https://mixoff-identity-test.eu-gb.mybluemix.net/pic")
+    exit(1)
 
     # train the system with the images
     print "Training..."
