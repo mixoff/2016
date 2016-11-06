@@ -48,7 +48,14 @@ recognizer = cv2.createLBPHFaceRecognizer(radius=2, neighbors=1, grid_x=2, grid_
 #recognizer = cv2.createFisherFaceRecognizer()
 #recognizer = cv2.createEigenFaceRecognizer()
 
-POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/test_upload"
+VID_WIDTH = 400
+VID_HEIGHT = 300
+PROCESS_WIDTH = 200
+PROCESS_HEIGHT = 150
+
+#POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/test_upload"
+POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/pic"
+POST_TIMEOUT = 8
 
 def Detect(img, cascade):
     rects = cascade.detectMultiScale(img, scaleFactor=1.3, minNeighbors=4, minSize=(30, 30), flags = cv.CV_HAAR_SCALE_IMAGE)
@@ -191,9 +198,13 @@ class PostingThread(threading.Thread):
 
     def run(self):
         headers = {'Content-Type': 'image/jpeg'}
-        data = open(self.filename, 'rb').read()
-        r = requests.post(self.url, headers=headers, data=data)
-        #print(r.text)
+        try:
+            data = open(self.filename, 'rb').read()
+            r = requests.post(self.url, headers=headers, data=data, timeout=POST_TIMEOUT)
+            #print(r.text)
+        except Exception as e:
+            print str(e)
+            
         self.queue.get() # pop 1 to signify we have finished thread
 
 def Run(inputSrc):
@@ -206,8 +217,8 @@ def Run(inputSrc):
     print "Waiting for live feed..."
     #cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
     cap = cv2.VideoCapture(inputSrc)
-    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 400)
-    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 300)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, VID_WIDTH)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, VID_HEIGHT)
 
     if not cap.isOpened(): 
 	print 'Cannot initialize video capture'
@@ -223,7 +234,7 @@ def Run(inputSrc):
         if not ret:
             continue
         
-        frame = cv2.resize(frame, (200,150))
+        frame = cv2.resize(frame, (PROCESS_WIDTH,PROCESS_HEIGHT))
 
         # convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
@@ -248,7 +259,7 @@ def Run(inputSrc):
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
             cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),2)#,cv2.LINE_AA)
 
-        frame = cv2.resize(frame, (400,300))
+        frame = cv2.resize(frame, (VID_WIDTH,VID_HEIGHT))
         cv2.imshow("Recognizing Face", frame)
 
         key = cv2.waitKey(1)
