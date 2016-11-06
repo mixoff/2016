@@ -34,6 +34,7 @@ import cv2
 from PIL import Image
 import requests
 import threading
+import time
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
 
@@ -45,6 +46,9 @@ face_cascade = cv2.CascadeClassifier(cascade_path)
 recognizer = cv2.createLBPHFaceRecognizer(radius=2, neighbors=1, grid_x=2, grid_y=2)#, threshold=10.0)
 #recognizer = cv2.createFisherFaceRecognizer()
 #recognizer = cv2.createEigenFaceRecognizer()
+
+POST_URL = "https://mixoff-identity-test.eu-gb.mybluemix.net/test_upload"
+SCREENSHOT_SECS = 1.5 # time between taking a screenshot
 
 def Detect(img, cascade):
     rects = cascade.detectMultiScale(img, scaleFactor=1.3, minNeighbors=4, minSize=(30, 30), flags = cv.CV_HAAR_SCALE_IMAGE)
@@ -208,6 +212,9 @@ def Run(inputSrc):
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
+    screenshotStart = time.time()
+    postScreenshot = False
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -226,33 +233,41 @@ def Run(inputSrc):
         print "Faces detected = " + str(len(faces))
         for (x, y, w, h) in faces:
             nbr_predicted, conf = recognizer.predict(gray[y:y+h, x:x+w])
-            print "    nbr_predicted = " + str(nbr_predicted)
-            print "    conf (closer to zero is better match) = " + str(conf)
+            #print "    nbr_predicted = " + str(nbr_predicted)
+            #print "    conf (closer to zero is better match) = " + str(conf)
             col = (255,0,0)
 
             if conf < 0.1 and nbr_predicted == 0:
                 col = (0,0,255)
+
+                postScreenshot = True
 
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
             cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),2)#,cv2.LINE_AA)
 
         frame = cv2.resize(frame, (400,300))
         cv2.imshow("Recognizing Face", frame)
-        
+
         key = cv2.waitKey(1)
         c = chr(key & 255)
         
         if c in ['t', 'T']:
+            postScreenshot = True
+
+        if c in ['q', 'Q', chr(27)]:
+            break
+
+        if postScreenshot and (time.time() - screenshotStart) > SCREENSHOT_SECS:
             print "Posting image..."
             # write file to disk
             tmpJPG = "/tmp/tmp.jpg"
             cv2.imwrite(tmpJPG, frame)
             # upload the image in a new thread
-            postingThread = PostingThread(tmpJPG, "https://mixoff-identity-test.eu-gb.mybluemix.net/test_upload")
+            postingThread = PostingThread(tmpJPG, POST_URL)
             postingThread.start()
-
-        if c in ['q', 'Q', chr(27)]:
-            break
+            screenshotStart = time.time()
+            postScreenshot = False
+        
 
     cap.release()
 
