@@ -12,10 +12,6 @@ cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local ..
 make
 sudo make install
 
-Instaling CherryPy
-apt-get install python-pip
-apt-get install python-setuptools
-pip install CherryPy
 '''
 
 '''
@@ -36,9 +32,8 @@ import numpy as np
 import cv2
 #import cv2.cv as cv
 from PIL import Image
-#import cherrypy
-#import httplib, urllib
 import requests
+import threading
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
 
@@ -182,13 +177,19 @@ def TestFaceRecognition():
 
 ################################################################################################
 
-def postImage(jpegData, url):
-    headers = {'Content-Type': 'image/jpeg'}
-    data = open("trainingdata_target/bacon1.jpg", 'rb').read()
-    r = requests.post(url, headers=headers, data=data)
-    print(r.text)
+class PostingThread(threading.Thread):
+    def __init__(self, filename, url):
+        super(PostingThread, self).__init__()
+        self.filename = filename
+        self.url = url
 
-def Run():
+    def run(self):
+        headers = {'Content-Type': 'image/jpeg'}
+        data = open(self.filename, 'rb').read()
+        r = requests.post(self.url, headers=headers, data=data)
+        #print(r.text)
+
+def Run(inputSrc):
     # can use ffmpeg to encode video from source into a FIFO:
     # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 output.mkv
     # Fifo:
@@ -196,10 +197,10 @@ def Run():
     # ffmpeg -f v4l2 -framerate 25 -video_size 640x480 -input_format mjpeg -i /dev/video0 pipe:1 > arsdk_fifo
 
     print "Waiting for live feed..."
-    cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
-    #cap = cv2.VideoCapture(0)
-    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 320)
-    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 240)
+    #cap = cv2.VideoCapture(r"/tmp/arsdk_ByirST/arsdk_fifo")
+    cap = cv2.VideoCapture(inputSrc)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_WIDTH, 400)
+    cap.set(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT, 300)
 
     if not cap.isOpened(): 
 	print 'Cannot initialize video capture'
@@ -207,14 +208,12 @@ def Run():
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
-    frame_number = 0
-
     while True:
         ret, frame = cap.read()
         if not ret:
             continue
         
-        frame = cv2.resize(frame, (160,120))
+        frame = cv2.resize(frame, (200,150))
 
         # convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
@@ -231,26 +230,48 @@ def Run():
             print "    conf (closer to zero is better match) = " + str(conf)
             col = (255,0,0)
 
-            if conf < 0.02 and nbr_predicted == 0:
+            if conf < 0.1 and nbr_predicted == 0:
                 col = (0,0,255)
 
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
             cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),2)#,cv2.LINE_AA)
 
-        frame = cv2.resize(frame, (512,480))
+        frame = cv2.resize(frame, (400,300))
         cv2.imshow("Recognizing Face", frame)
+        
         key = cv2.waitKey(1)
         c = chr(key & 255)
+        
+        if c in ['t', 'T']:
+            print "Posting image..."
+            # write file to disk
+            tmpJPG = "/tmp/tmp.jpg"
+            cv2.imwrite(tmpJPG, frame)
+            # upload the image in a new thread
+            postingThread = PostingThread(tmpJPG, "https://mixoff-identity-test.eu-gb.mybluemix.net/test_upload")
+            postingThread.start()
+
         if c in ['q', 'Q', chr(27)]:
             break
-        frame_number += 1
 
     cap.release()
 
 
 if __name__ == '__main__':
-    #postImage(None, "https://mixoff-identity-test.eu-gb.mybluemix.net/pic")
-    #exit(1)
+    if len(sys.argv) < 2:
+        print "Usage : python server.py 'VidInputSource'"
+        print ""
+        print "VidInputSource can be 0 or a file or FIFO."
+        exit(1)
+
+    inputSrc = sys.argv[1]
+    try:
+        # try converting the input source to an int
+        # we leave it as a string if this fails
+        i = int(inputSrc)
+        inputSrc = i
+    except Exception as e:
+        pass
 
     # train the system with the images
     print "Training..."
@@ -261,21 +282,6 @@ if __name__ == '__main__':
     images, labels = GetImages("trainingdata_target/", 0, True)
     recognizer.update(images, np.array(labels))
    
-    while True:
-        Run()
-    #exit()
-    #cap = cv2.VideoCapture(0)
-
-    #conf = {
-    #    '/': {
-    #        'tools.sessions.on': True,
-    #        'tools.staticdir.root': os.path.abspath(os.getcwd())
-    #    },
-    #    '/static': {
-    #        'tools.staticdir.on': True,
-    #        'tools.staticdir.dir': './public'
-    #    }
-    #}
-    #cherrypy.quickstart(StringGenerator(), '/', conf)
+    Run(inputSrc)
 
 
