@@ -1,21 +1,14 @@
-import time
-import BaseHTTPServer
+import os
+import cherrypy
 
 
-HOST_NAME = '127.0.0.1' # !!!REMEMBER TO CHANGE THIS!!!
 PORT_NUMBER = 80 # Maybe set this to 9000.
 
 
-class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-    def do_HEAD(s):
-        s.send_response(200)
-        s.send_header("Content-type", "text/html")
-        s.end_headers()
-    def do_GET(s):
+class App(object):
+    @cherrypy.expose
+    def index(self):
         """Respond to a GET request."""
-        s.send_response(200)
-        s.send_header("Content-type", "text/html")
-        s.end_headers()
 
         html = """
 <html><head>
@@ -23,42 +16,61 @@ class MyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 </head>
 <body>
     <p>Waiting for notification...</p>
-    <canvas id="canvas" width='100%' height='100%'></canvas>
+    <canvas id="canvas" width='1024px' height='768px'></canvas>
 </body>
 <script>
+    var g = 0;
+
+    function Uint8ToBase64(u8Arr){
+        var CHUNK_SIZE = 0x8000; //arbitrary number
+        var index = 0;
+        var length = u8Arr.length;
+        var result = '';
+        var slice;
+        while (index < length) {
+            slice = u8Arr.subarray(index, Math.min(index + CHUNK_SIZE, length)); 
+            result += String.fromCharCode.apply(null, slice);
+            index += CHUNK_SIZE;
+        }
+        return btoa(result);
+    }
+    
     window.onload = function() {
         var canvas = document.getElementById('canvas');
         var ctx = canvas.getContext('2d');
-        var ws = new WebSocket('ws://mixoff-identity-test.eu-gb.mybluemix.net/push');
-        //ws.binaryType = 'arraybuffer'; // IS THIS CORRECT??
-        ws.onopen = function(e) { alert("opened"); }
-        ws.onclose = function(e) { alert("closed"); }
+        var ws = new WebSocket('ws://mixoff-identity-test.eu-gb.mybluemix.net/ws_output');
+        ws.binaryType = 'arraybuffer';
+        ws.onopen = function(e) { console.log("opened"); }
+        ws.onclose = function(e) { console.log("closed"); }
         ws.onmessage = function(e) { 
-            alert("got: " + e.data); 
+            console.log("got: " + e.data); 
+            console.log("Size = " + e.data.byteLength);
+            g = e.data;
+            var u8 = new Uint8Array(e.data);
+            var b64encoded = Uint8ToBase64(u8);//btoa(String.fromCharCode.apply(null, u8));
+            imageObj = new Image();
+            imageObj.onload= function() {
+                //console.log(imageObj.src)
+                ctx.drawImage(imageObj, 0, 0);
+            }
+            imageObj.src = "data:image/jpg;base64,"+b64encoded;
             
         }
     };
 </script>
         """
-        s.wfile.write(html)
-
-
-        #s.wfile.write("<html><head><title>Phone Application</title></head>")
-        #s.wfile.write("<body><p>This is a test.</p>")
-        # If someone went to "http://something.somewhere.net/foo/bar/",
-        # then s.path equals "/foo/bar/".
-        #s.wfile.write("<p>You accessed path: %s</p>" % s.path)
-
-
-        s.wfile.write("</body></html>")
+        return html
 
 if __name__ == '__main__':
-    server_class = BaseHTTPServer.HTTPServer
-    httpd = server_class((HOST_NAME, PORT_NUMBER), MyHandler)
-    print time.asctime(), "Server Starts - %s:%s" % (HOST_NAME, PORT_NUMBER)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    httpd.server_close()
-    print time.asctime(), "Server Stops - %s:%s" % (HOST_NAME, PORT_NUMBER)
+
+    conf = {
+        '/': {
+            'tools.staticdir.root': os.path.abspath(os.getcwd())
+        },
+        '/public': {
+            'tools.staticdir.on': True,
+            'tools.staticdir.dir': 'public'
+        }
+    }    
+    cherrypy.quickstart(App(), '/', conf)
+
