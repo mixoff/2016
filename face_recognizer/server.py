@@ -34,6 +34,7 @@ import cv2
 from PIL import Image
 import requests
 import threading
+import Queue
 import time
 
 print "#### OpenCV Version: " + cv2.__version__ + " ####"
@@ -47,8 +48,7 @@ recognizer = cv2.createLBPHFaceRecognizer(radius=2, neighbors=1, grid_x=2, grid_
 #recognizer = cv2.createFisherFaceRecognizer()
 #recognizer = cv2.createEigenFaceRecognizer()
 
-POST_URL = "https://mixoff-identity-test.eu-gb.mybluemix.net/test_upload"
-SCREENSHOT_SECS = 1.5 # time between taking a screenshot
+POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/test_upload"
 
 def Detect(img, cascade):
     rects = cascade.detectMultiScale(img, scaleFactor=1.3, minNeighbors=4, minSize=(30, 30), flags = cv.CV_HAAR_SCALE_IMAGE)
@@ -182,16 +182,19 @@ def TestFaceRecognition():
 ################################################################################################
 
 class PostingThread(threading.Thread):
-    def __init__(self, filename, url):
+    def __init__(self, filename, url, queue):
         super(PostingThread, self).__init__()
         self.filename = filename
         self.url = url
+        self.queue = queue
+        self.queue.put(1) # put 1 to signify we are running thread
 
     def run(self):
         headers = {'Content-Type': 'image/jpeg'}
         data = open(self.filename, 'rb').read()
         r = requests.post(self.url, headers=headers, data=data)
         #print(r.text)
+        self.queue.get() # pop 1 to signify we have finished thread
 
 def Run(inputSrc):
     # can use ffmpeg to encode video from source into a FIFO:
@@ -212,8 +215,8 @@ def Run(inputSrc):
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
-    screenshotStart = time.time()
     postScreenshot = False
+    screenshotQueue = Queue.Queue()
 
     while True:
         ret, frame = cap.read()
@@ -257,15 +260,15 @@ def Run(inputSrc):
         if c in ['q', 'Q', chr(27)]:
             break
 
-        if postScreenshot and (time.time() - screenshotStart) > SCREENSHOT_SECS:
+        #if postScreenshot and (time.time() - screenshotStart) > SCREENSHOT_SECS:
+        if postScreenshot and screenshotQueue.empty():
             print "Posting image..."
             # write file to disk
             tmpJPG = "/tmp/tmp.jpg"
             cv2.imwrite(tmpJPG, frame)
             # upload the image in a new thread
-            postingThread = PostingThread(tmpJPG, POST_URL)
+            postingThread = PostingThread(tmpJPG, POST_URL, screenshotQueue)
             postingThread.start()
-            screenshotStart = time.time()
             postScreenshot = False
         
 

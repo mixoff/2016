@@ -69,3 +69,9 @@ https://mixoff-identity-test.eu-gb.mybluemix.net/image?url=http://cp91279.biogra
 Works with objects too (limited to 2MB)
 
 can now POST an image to https://mixoff-identity-test.eu-gb.mybluemix.net/pic to get it displayed. Remember to set the content-type
+
+You can tese this with the 'requests' library in Python:
+    headers = {'Content-Type': 'image/jpeg'}
+    r = requests.post("https://mixoff-identity-test.eu-gb.mybluemix.net/pic", headers=headers, data=open("trainingdata_target/bacon1.jpg", 'rb').read())
+    t.text
+
