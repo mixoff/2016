@@ -39,6 +39,7 @@ class App(object):
         var canvas = document.getElementById('canvas');
         var ctx = canvas.getContext('2d');
         var ws = new WebSocket('ws://mixoff-identity-test.eu-gb.mybluemix.net/ws_output');
+        //var ws = new WebSocket('ws://mixoff-identity-test.eu-gb.mybluemix.net/push');
         ws.binaryType = 'arraybuffer';
         ws.onopen = function(e) { console.log("opened"); }
         ws.onclose = function(e) { console.log("closed"); }
@@ -71,6 +72,7 @@ if __name__ == '__main__':
             'tools.staticdir.on': True,
             'tools.staticdir.dir': 'public'
         }
-    }    
+    }   
+    cherrypy.server.socket_host = '0.0.0.0'
     cherrypy.quickstart(App(), '/', conf)
 
