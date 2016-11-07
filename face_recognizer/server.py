@@ -222,7 +222,7 @@ def Run(inputSrc):
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
-    postScreenshot = False
+    resize = False
     screenshotQueue = Queue.Queue()
 
     while True:
@@ -230,7 +230,8 @@ def Run(inputSrc):
         if not ret:
             continue
         
-        frame = cv2.resize(frame, (PROCESS_WIDTH,PROCESS_HEIGHT))
+        if resize:
+            frame = cv2.resize(frame, (PROCESS_WIDTH,PROCESS_HEIGHT))
 
         # convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) 
@@ -247,41 +248,38 @@ def Run(inputSrc):
             #print "    conf (closer to zero is better match) = " + str(conf)
             col = (255,0,0)
 
-            if conf < 0.1 and nbr_predicted == 0:
+            #if conf < 0.1 and nbr_predicted == 0:
+            if nbr_predicted == 0:
                 col = (0,0,255)
 
-                postScreenshot = True
+                #imgToPost = frame.copy()
                 #roi = frame[y:(y+h), x:(x+w)]
                 #cv2.imshow("Cropped", roi)
                 #cv2.imwrite("/tmp/cropped.jpg", roi)
                 #cv2.waitKey(5)
+                if screenshotQueue.empty():
+                    print "Posting image..."
+                    # write file to disk
+                    tmpJPG = "/tmp/tmp.jpg"
+                    cv2.imwrite(tmpJPG, frame)
+                    # upload the image in a new thread
+                    postingThread = PostingThread(tmpJPG, POST_URL, screenshotQueue)
+                    postingThread.start()
 
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 1)
-            cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),1)#,cv2.LINE_AA)
+            #cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),1)#,cv2.LINE_AA)
+            cv2.putText(frame,str(nbr_predicted),(x+5,y-15), font, 0.5,(255,0,0),1)#,cv2.LINE_AA)
 
-        frame = cv2.resize(frame, (VID_WIDTH,VID_HEIGHT))
+        if resize:
+            frame = cv2.resize(frame, (VID_WIDTH,VID_HEIGHT))
+
         cv2.imshow("Recognizing Face", frame)
 
         key = cv2.waitKey(1)
         c = chr(key & 255)
         
-        if c in ['t', 'T']:
-            postScreenshot = True
-
         if c in ['q', 'Q', chr(27)]:
             break
-
-        #if postScreenshot and (time.time() - screenshotStart) > SCREENSHOT_SECS:
-        if postScreenshot and screenshotQueue.empty():
-            print "Posting image..."
-            # write file to disk
-            tmpJPG = "/tmp/tmp.jpg"
-            cv2.imwrite(tmpJPG, frame)
-            # upload the image in a new thread
-            postingThread = PostingThread(tmpJPG, POST_URL, screenshotQueue)
-            postingThread.start()
-            postScreenshot = False
-        
 
     cap.release()
 
