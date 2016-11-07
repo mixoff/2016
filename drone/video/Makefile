@@ -3,6 +3,7 @@ CFLAGS=-I./ -I $(SDK_DIR)/usr/include
 LDFLAGS=-L$(SDK_DIR)/usr/lib -larcontroller -larnetwork -larstream2 -larsal -larcommands -larnetworkal -lardiscovery -larstream -ljson -lpthread -lm -lczmq
 
 SDK_DIR=arsdk3
+#SDK_DIR=/home/mixmeister/arsdk/out/arsdk-native/staging
 EXEC_BIN=bin/drone
 FIFO_FILE=bin/fifo
 

@@ -56,8 +56,6 @@ var drone_cmd = function(sock, command, value) {
     sock.send(util.format('{"id": %d, "value": %d}', command, value));
 }
 
-var connect_attempts = 1;
-
 process.on('SIGINT', () => {
     console.log(style.error('SIGINT received, performing emergency stop'));
     drone_cmd(sock, commands.EMERGENCY, 0);
@@ -76,13 +74,6 @@ sock.on('connect', function(fd, ep) {
     }, 10000);
     console.log(style.info('Beginning drone flight in 10 seconds'));
 });
-
-sock.on('connect_retry', function(fd, ep) {
-    console.log(style.warn(util.format('Awaiting connection to drone RPC (attempt %d)', connect_attempts)));
-    connect_attempts++;
-});
-
-sock.monitor(1000);
 
 setTimeout(function() {
     sock.connect('tcp://127.0.0.1:5555');
