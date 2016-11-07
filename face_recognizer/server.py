@@ -224,6 +224,7 @@ def Run(inputSrc):
 
     resize = False
     screenshotQueue = Queue.Queue()
+    post = False
 
     while True:
         ret, frame = cap.read()
@@ -251,20 +252,13 @@ def Run(inputSrc):
             #if conf < 0.1 and nbr_predicted == 0:
             if nbr_predicted == 0:
                 col = (0,0,255)
+                post = True
 
                 #imgToPost = frame.copy()
                 #roi = frame[y:(y+h), x:(x+w)]
                 #cv2.imshow("Cropped", roi)
                 #cv2.imwrite("/tmp/cropped.jpg", roi)
                 #cv2.waitKey(5)
-                if screenshotQueue.empty():
-                    print "Posting image..."
-                    # write file to disk
-                    tmpJPG = "/tmp/tmp.jpg"
-                    cv2.imwrite(tmpJPG, frame)
-                    # upload the image in a new thread
-                    postingThread = PostingThread(tmpJPG, POST_URL, screenshotQueue)
-                    postingThread.start()
 
             cv2.rectangle(frame, (x, y), (x+w, y+h), col, 1)
             #cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),1)#,cv2.LINE_AA)
@@ -274,6 +268,16 @@ def Run(inputSrc):
             frame = cv2.resize(frame, (VID_WIDTH,VID_HEIGHT))
 
         cv2.imshow("Recognizing Face", frame)
+
+        if post and screenshotQueue.empty():
+            print "Posting image..."
+            # write file to disk
+            tmpJPG = "/tmp/tmp.jpg"
+            cv2.imwrite(tmpJPG, frame)
+            # upload the image in a new thread
+            postingThread = PostingThread(tmpJPG, POST_URL, screenshotQueue)
+            postingThread.start()
+            post = False
 
         key = cv2.waitKey(1)
         c = chr(key & 255)
