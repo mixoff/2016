@@ -44,7 +44,7 @@ cascade_path = "haarcascade_frontalface_default.xml"
 face_cascade = cv2.CascadeClassifier(cascade_path)
 
 # For face recognition we will the the LBPH Face Recognizer
-recognizer = cv2.createLBPHFaceRecognizer(radius=2, neighbors=1, grid_x=2, grid_y=2)#, threshold=10.0)
+recognizer = cv2.createLBPHFaceRecognizer()#radius=2, neighbors=1, grid_x=2, grid_y=2)#, threshold=10.0)
 #recognizer = cv2.createFisherFaceRecognizer()
 #recognizer = cv2.createEigenFaceRecognizer()
 
@@ -53,8 +53,8 @@ VID_HEIGHT = 300
 PROCESS_WIDTH = 200
 PROCESS_HEIGHT = 150
 
-#POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/test_upload"
-POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/pic"
+POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/test_upload"
+#POST_URL = "https://mixoff-analysis.eu-gb.mybluemix.net/pic"
 POST_TIMEOUT = 8
 
 def Detect(img, cascade):
@@ -68,11 +68,10 @@ def DrawRects(img, rects, color):
     for x1, y1, x2, y2 in rects:
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
-def GetImages(path, label, resize=False):
+def GetImages(path, label, resize, trainImages, trainLabels):
     # Append all the absolute image paths in a list image_paths
     image_paths = [os.path.join(path, f) for f in os.listdir(path)]
     # images will contains face images
-    images = []
     labels = []
     for image_path in image_paths:
         print "Processing : " + image_path
@@ -96,8 +95,8 @@ def GetImages(path, label, resize=False):
             # If face is detected, append the face to images 
             for (x, y, w, h) in faces:
                 cropped_image = image[y: y + h, x: x + w]
-                images.append(cropped_image)
-                labels.append(label)
+                trainImages.append(cropped_image)
+                trainLabels.append(label)
                 splitpath, splitfilename = os.path.split(image_path)
                 cv2.imwrite("temp/"+str(label)+"_"+str(x)+"_"+str(y)+"_"+splitfilename, cropped_image)
         
@@ -111,9 +110,6 @@ def GetImages(path, label, resize=False):
             image_h, image_w = image.shape[:2]
             if image_h < 50 or image_w < 50:
                 break
-
-    # return the images list
-    return images, labels
 
 
 def TestFaceDetection():
@@ -255,9 +251,13 @@ def Run(inputSrc):
                 col = (0,0,255)
 
                 postScreenshot = True
+                #roi = frame[y:(y+h), x:(x+w)]
+                #cv2.imshow("Cropped", roi)
+                #cv2.imwrite("/tmp/cropped.jpg", roi)
+                #cv2.waitKey(5)
 
-            cv2.rectangle(frame, (x, y), (x+w, y+h), col, 2)
-            cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),2)#,cv2.LINE_AA)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), col, 1)
+            cv2.putText(frame,str(nbr_predicted) + " : " + str(conf),(x+5,y-15), font, 0.5,(255,0,0),1)#,cv2.LINE_AA)
 
         frame = cv2.resize(frame, (VID_WIDTH,VID_HEIGHT))
         cv2.imshow("Recognizing Face", frame)
@@ -304,12 +304,19 @@ if __name__ == '__main__':
 
     # train the system with the images
     print "Training..."
+
+    trainImages = []
+    trainLabels = []
     # train the recognizer with "false" data
-    images, labels = GetImages('trainingdata_false/', 1)
-    recognizer.train(images, np.array(labels))
-    # update the recognizer with the target images
-    images, labels = GetImages("trainingdata_target/", 0, True)
-    recognizer.update(images, np.array(labels))
+    GetImages("trainingdata_target/", 0, True, trainImages, trainLabels)
+    GetImages('trainingdata_tomcruise/', 1, True, trainImages, trainLabels)
+    GetImages('trainingdata_judy/', 2, True, trainImages, trainLabels)
+    GetImages('trainingdata_scarlett/', 3, True, trainImages, trainLabels)
+    GetImages('trainingdata_false/', 4, False, trainImages, trainLabels)
+
+    print trainLabels
+
+    recognizer.train(trainImages, np.array(trainLabels))
    
     Run(inputSrc)
 
