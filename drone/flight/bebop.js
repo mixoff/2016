@@ -19,7 +19,8 @@ var commands = {
     EMERGENCY: 3,
     ROLL: 4,
     FLIP: 5,
-    CALIBRATE: 6
+    CALIBRATE: 6,
+    UP: 7
 }
 
 program
@@ -60,16 +61,18 @@ var connect_attempts = 1;
 process.on('SIGINT', () => {
     console.log(style.error('SIGINT received, performing emergency stop'));
     drone_cmd(sock, commands.EMERGENCY, 0);
+    process.exit(1);
 });
 
 sock.on('connect', function(fd, ep) {
     console.log(style.info('Got a connection!'));
     setTimeout(function() {
-        setTimeout(drone_cmd, 5000, sock, commands.TAKEOFF, 0);
-        setTimeout(drone_cmd, 10000, sock, commands.ROLL, -80);
-        setTimeout(drone_cmd, 15000, sock, commands.ROLL, 80);
-        setTimeout(drone_cmd, 25000, sock, commands.ROLL, -80);
-        setTimeout(drone_cmd, 30000, sock, commands.LAND, 0);
+        setTimeout(drone_cmd, 5000, sock, commands.CALIBRATE, 0);
+        setTimeout(drone_cmd, 10000, sock, commands.TAKEOFF, 0);
+	setTimeout(drone_cmd, 15000, sock, commands.UP, 5);
+	setTimeout(drone_cmd, 20000, sock, commands.UP, 0);
+        setTimeout(drone_cmd, 25000, sock, commands.ROLL, -20);
+        setTimeout(drone_cmd, 35000, sock, commands.LAND, 0);
     }, 10000);
     console.log(style.info('Beginning drone flight in 10 seconds'));
 });

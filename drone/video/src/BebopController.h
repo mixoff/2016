@@ -11,6 +11,7 @@
 #define CMD_ROLL 4
 #define CMD_FLIP 5
 #define CMD_CALIBRATE 6
+#define CMD_UP 7
 
 /* ZMQ listen port. */
 #define LISTEN_PORT 5555
