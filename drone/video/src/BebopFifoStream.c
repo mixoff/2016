@@ -11,8 +11,6 @@
 
 #include "BebopController.h"
 
-#define TEST
-
 // Function prototypes
 static void state_changed(eARCONTROLLER_DEVICE_STATE new_state, eARCONTROLLER_ERROR error, void *custom_data);
 static void begin_streaming();

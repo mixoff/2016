@@ -5,8 +5,6 @@
 #include "BebopController.h"
 #include "cJSON.h"
 
-#define TEST
-
 static void try_exec_cmd(ARCONTROLLER_Device_t *device, const char *msg)
 {
     cJSON *root = cJSON_Parse(msg);
