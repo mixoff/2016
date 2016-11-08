@@ -222,7 +222,7 @@ def Run(inputSrc):
 
     font = cv2.FONT_HERSHEY_SIMPLEX
 
-    resize = False
+    resize = True
     screenshotQueue = Queue.Queue()
     post = False
 
