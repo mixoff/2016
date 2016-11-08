@@ -266,6 +266,8 @@ def Run(inputSrc):
 
         if resize:
             frame = cv2.resize(frame, (VID_WIDTH,VID_HEIGHT))
+        
+        frame = cv2.resize(frame, (1280,720))
 
         cv2.imshow("Recognizing Face", frame)
 

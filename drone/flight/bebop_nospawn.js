@@ -35,10 +35,5 @@ var drone_cmd = function(sock, command, value) {
 }
 
 sock.connect('tcp://127.0.0.1:5555');
-drone_cmd(sock, commands.CALIBRATE, 0);
-setTimeout(drone_cmd, 5000, sock, commands.CALIBRATE, 0);
-setTimeout(drone_cmd, 10000, sock, commands.TAKEOFF, 0);
-setTimeout(drone_cmd, 15000, sock, commands.UP, 5);
-setTimeout(drone_cmd, 20000, sock, commands.UP, 0);
-setTimeout(drone_cmd, 25000, sock, commands.ROLL, -20);
-setTimeout(drone_cmd, 35000, sock, commands.LAND, 0);
+setTimeout(drone_cmd, 5000, sock, commands.TAKEOFF, 0);
+setTimeout(drone_cmd, 15000, sock, commands.LAND, 0);
